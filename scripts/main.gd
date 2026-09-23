@@ -424,8 +424,8 @@ func _draw_battle() -> void:
 		draw_circle(Vector2(496,182),3,Color("#d3cfcc"))
 		_rect(822,170,35,78,Color("#39435d"))
 		_rect(820,145,39,38,Color("#dcb18b"))
-	var px := 127.0 + (18.0 if anim_kind == "fight" and anim_time > 0 else 0.0)
-	_sprite("player_back",px,167,135,145)
+	var px := 137.0 + (18.0 if anim_kind == "fight" and anim_time > 0 else 0.0)
+	_sprite("player_back",px,160,120,151)
 	if anim_kind == "eat" and anim_time > 0:
 		for i in range(6):
 			var sx := px-18+i*39
@@ -474,7 +474,7 @@ func _draw_end(won: bool) -> void:
 		_text("総戦闘回数    %d 回" % Game.fight_count,530,382,21,Color("#4f4556"))
 	else:
 		if game_over_reason == "hp":
-			_sprite("player_fallen",68,331,192,113)
+			_sprite("player_fallen",68,329,160,128)
 		else:
 			_sprite("player_seated",88,274,150,150)
 		if game_over_reason == "calories":
