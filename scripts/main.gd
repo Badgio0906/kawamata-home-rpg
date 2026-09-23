@@ -257,7 +257,12 @@ func _center(t: String,x: float,y: float,width: float,size: int=22,color: Color=
 
 func _sprite(name: String,x: float,y: float,w: float,h: float,flip: bool=false) -> void:
 	var tex: Texture2D = art[name]
-	draw_texture_rect(tex,Rect2(x,y,w,h),false,Color.WHITE,flip)
+	if flip:
+		draw_set_transform(Vector2(x+w,y),0.0,Vector2(-1,1))
+		draw_texture_rect(tex,Rect2(0,0,w,h),false)
+		draw_set_transform(Vector2.ZERO)
+	else:
+		draw_texture_rect(tex,Rect2(x,y,w,h),false)
 
 func _button(t: String,box: Rect2,active: bool=true,size: int=24) -> void:
 	_round(box.position.x+3,box.position.y+5,box.size.x,box.size.y,Color("#293148"),10)
