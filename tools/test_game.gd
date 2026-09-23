@@ -1,6 +1,6 @@
 extends SceneTree
 
-const ROUTE := ["donut","cake","karaage","burger","pizza","parfait","final"]
+const ROUTE := ["donut","cake","karaage","burger","pizza","parfait","ramen","final"]
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -11,10 +11,11 @@ func _run() -> void:
 	var game: Node = root.get_node("Game")
 	var results := []
 	for plan in [
-		[1,1,1,1,1,1,1],
-		[1,1,2,1,2,1,1],
-		[2,2,2,2,2,2,2],
-		[3,3,3,3,3,3,3],
+		[1,1,1,1,1,1,1,1],
+		[1,1,2,1,2,1,1,1],
+		[1,1,2,1,3,1,2,1],
+		[2,2,2,2,2,2,2,2],
+		[3,3,3,3,3,3,3,3],
 	]:
 		main._start_game()
 		var turns := 0
@@ -36,7 +37,7 @@ func _run() -> void:
 			main._check_encounter(2400)
 		results.append({"plan":plan,"screen":main.screen,"level":game.player_level,"hp":game.current_hp,"calories":game.calories,"motivation":game.motivation,"battles":game.fight_count,"checkpoints":checkpoints})
 	print(JSON.stringify(results))
-	if results[0].screen != "clear" or results[1].screen != "clear" or results[2].screen != "game_over":
+	if results[0].screen != "clear" or results[1].screen != "clear" or results[2].screen != "clear" or results[3].screen != "game_over" or results[4].screen != "game_over":
 		printerr("Balance scenarios failed")
 		quit(1)
 		return

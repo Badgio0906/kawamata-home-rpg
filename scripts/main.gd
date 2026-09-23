@@ -10,10 +10,11 @@ const GATES := [
 	{"id":"encounter_04","enemy":"burger","x":1145.0,"optional":false},
 	{"id":"encounter_05","enemy":"pizza","x":1425.0,"optional":false},
 	{"id":"encounter_06","enemy":"parfait","x":1705.0,"optional":false},
-	{"id":"encounter_07","enemy":"final","x":2235.0,"optional":false},
-	{"id":"encounter_08","enemy":"donut","x":730.0,"optional":true},
-	{"id":"encounter_09","enemy":"ramen","x":1570.0,"optional":true},
-	{"id":"encounter_10","enemy":"cake","x":1950.0,"optional":true},
+	{"id":"encounter_07","enemy":"ramen","x":1945.0,"optional":false},
+	{"id":"encounter_08","enemy":"final","x":2235.0,"optional":false},
+	{"id":"encounter_09","enemy":"donut","x":730.0,"optional":true},
+	{"id":"encounter_10","enemy":"burger","x":1570.0,"optional":true},
+	{"id":"encounter_11","enemy":"cake","x":2090.0,"optional":true},
 ]
 
 var font: Font
@@ -123,7 +124,7 @@ func _check_encounter(old_x: float) -> void:
 			Game.enemy_id = gate.enemy
 			_start_battle()
 			return
-	if Game.player_position.x > 2420.0 and Game.completed.has("encounter_07"):
+	if Game.player_position.x > 2420.0 and Game.completed.has("encounter_08"):
 		screen = "clear"
 		_sound("clear")
 
@@ -208,11 +209,15 @@ func _finish_battle() -> void:
 		return
 	screen = "field"
 	Game.player_position.x += 26.0
-	if Game.encounter_id == "encounter_04" or Game.encounter_id == "encounter_06":
+	if Game.encounter_id in ["encounter_04","encounter_06","encounter_07"]:
 		var before := Game.current_hp
-		var heal := 45 if Game.encounter_id == "encounter_04" else 100
+		var heal := 45 if Game.encounter_id == "encounter_04" else 100 if Game.encounter_id == "encounter_06" else 50
 		Game.current_hp = mini(Game.max_hp, Game.current_hp + heal)
-		field_notice = "公園のベンチで一休み！ HP +%d" % (Game.current_hp - before)
+		var morale := 0
+		if Game.player_level >= 2 and Game.encounter_id != "encounter_07":
+			morale = mini(8,100-Game.motivation)
+			Game.motivation += morale
+		field_notice = "ベンチで一休み！ HP +%d やる気 +%d" % [Game.current_hp - before,morale]
 		field_notice_time = 3.5
 	_sound("select")
 
@@ -300,7 +305,7 @@ func _draw_field() -> void:
 		if x > -30 and x < W+30:
 			_sprite("lamp",x,230,36,78)
 			_rect(x+10,289,15,3,Color("#ffe4a3"))
-	for bench_x in [1180.0,1740.0]:
+	for bench_x in [1180.0,1740.0,2000.0]:
 		var bx: float = bench_x-camera_x
 		if bx > -80 and bx < W+80:
 			_rect(bx,247,92,12,Color("#75556a"))
@@ -330,7 +335,7 @@ func _draw_field() -> void:
 	if Game.player_position.x < 215:
 		_round(225,99,370,41,Color("#252d49"),8)
 		_text("職場を出た！ おうちまで進もう",239,127,19)
-	if Game.completed.has("encounter_07") and Game.player_position.x > 2210:
+	if Game.completed.has("encounter_08") and Game.player_position.x > 2210:
 		_round(350,105,256,38,Color("#252d49"),8)
 		_text("おうちの玄関へ！ →",362,132,19)
 	if field_notice_time > 0:
@@ -343,7 +348,7 @@ func _draw_hud() -> void:
 	_draw_meter("HP",Game.current_hp,Game.max_hp,112,22,Color("#7dd8ad"),Game.current_hp <= Game.max_hp*0.25)
 	_draw_meter("カロリー",Game.calories,1600,300,22,Color("#f4bc75"),Game.calories >= 1300)
 	_draw_meter("やる気",Game.motivation,100,498,22,Color("#9ac8f2"),Game.motivation <= 25)
-	_text("戦闘 %d/7～10" % Game.fight_count,737,51,19)
+	_text("戦闘 %d/8～11" % Game.fight_count,737,51,19)
 
 func _draw_meter(label: String,value: int,max_value: int,x: float,y: float,c: Color,warn: bool) -> void:
 	_text(("! " if warn else "")+label,x,y+19,17,Color("#ff8388") if warn else Color.WHITE)
