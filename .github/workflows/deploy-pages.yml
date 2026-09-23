@@ -28,6 +28,7 @@ jobs:
       - name: Export web game
         run: |
           /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 --headless --path . --import
+          /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 --headless --path . --script tools/test_game.gd
           /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 --headless --path . --export-release Web web/index.html
           test -s web/index.html
           python3 tools/version_web.py --directory web --version "$GITHUB_SHA"

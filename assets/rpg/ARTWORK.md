@@ -51,3 +51,95 @@ edges. This must be usable as a transparent PNG sprite atlas.
 
 The returned image retained its backdrop. Godot therefore uses the explicit
 polygon boundaries in `town_art.json` to display individual buildings and props.
+
+
+## September 2026: heroine and Stage 2
+
+Built-in image generation mode was used (no API/CLI fallback). Source PNGs are
+preserved unchanged; Godot AtlasTexture regions and town polygon silhouettes
+select assets at runtime. These files are self-contained in this repository:
+
+- `hero_atlas.png`: 1254×1254 transparent PNG, 3×3 cells. Rows front/back/right;
+  columns walk A/idle/walk B. Left-facing frames mirror right-facing frames.
+- `hero_endings.png`: 2172×724 transparent PNG, three equal cells: disappointed
+  seated / exhausted lying down / happy seated. Same character as walking atlas.
+- `station.png`: original fictionalized station entrance representing the game
+  destination 阪神尼崎駅. The engine adds the station name; no real brand logo.
+- `feast.png`: original two-tier banquet monster for Stage 2, transparent PNG.
+
+### Hero walking prompt
+
+The attached town image is ONLY a style reference for pixel density, clustered
+shading and palette. Create an entirely new production-ready PLAYER WALKING
+SPRITE SHEET, exactly 1536x1536 square, 3 columns 3 rows each 512. Background flat
+magenta for chromakey. Same original adult female Japanese office worker, cute
+gentle face, dark warm brown shoulder-length bob, side-swept fringe, rose-pink
+hair clip, rose cardigan, ivory blouse, dark plum knee-length skirt, dark tights,
+brown low shoes, tan shoulder handbag. Charming 2.75-head chibi, detailed true
+pixelated 16-bit handheld RPG, four shades, clustered highlights. Centered cell,
+feet y465, 270 wide 420 tall. Row 1 front three walks, row 2 back three walks,
+row 3 RIGHT three walks. No text, grid, smooth vector or 3D.
+
+The tool supplied real transparent alpha and a 1254px square; those actual
+properties are preserved and used by the engine.
+
+### Station prompt
+
+Original Japanese railway entrance representing Hanshin Amagasaki, fictional
+stylization, no real logos or exact architecture. Broad blue-gray canopy, cream
+tile, clock, ticket gates, amber windows, yellow tactile paving, bike rack,
+flowers and blank ivory sign. Top-down 3/4 orthographic handheld 16-bit pixel
+clusters, transparent alpha. Town atlas is the palette and density reference.
+
+The returned station retained a backdrop; `data/town_art.json` selects its
+silhouette without modifying the original file.
+
+### Two-tier feast prompt
+
+Production-ready original enemy sprite for a Japanese handheld 16-bit pixel-art
+RPG. One enormous funny two-tier feast monster, a white two-level banquet platter
+overflowing with ramen noodles, golden fried chicken, strawberry shortcake,
+french fries and a pink parfait. Two stacked distinct serving levels communicate
+it must be eaten twice. Friendly mischievous eyes on the lower bowl, small stout
+arms, no scary teeth. Full isolated sprite centered with generous margin.
+Orthographic 3/4 view from slightly above, crisp stepped pixel clusters, limited
+warm palette with plum outlines and four-tone shading, meticulous delicious food
+detail. Underlying 128x128 sprite resolution, upscale nearest-looking to 1024
+square, true transparent alpha background. No backdrop, floor, text, letters,
+logo or watermark. Original artwork, no existing game characters.
+
+### Ending poses prompt
+
+Use attached sprite sheet ONLY as character identity/style reference. Create a
+new original 3-column by 1-row end-screen sprite sheet, each equal square cell
+with generous margin, whole sheet 1536x512. Same adult female office worker:
+warm brown bob, pink hair clip, rose cardigan, ivory blouse, plum knee skirt,
+dark tights, brown shoes, tan handbag. Detailed crisp pixel clusters, 16-bit
+handheld RPG character rendering matching reference exactly, no smooth
+illustration. Three separate full body poses: LEFT sitting on ground with knees
+together and legs to one side, shoulders slumped, tired disappointed gentle face.
+MIDDLE collapsed on her side resting on the ground, eyes closed, exhausted but
+unhurt. RIGHT sitting relaxed and upright on an invisible sofa, knees together
+feet down, relieved happy smile. Every pose completely visible with identical
+body scale and costume, isolated on true transparent alpha background. No actual
+sofa or ground, no text, no logos, no grid, no extra characters.
+
+
+### Helper carrying animation
+
+`helper_atlas.png` was generated with the built-in image tool. Two silhouettes
+in `town_art.json` extract the walking and tray-holding poses. Godot animates
+arrival, food transfer to the tray, and departure. The original PNG is unedited.
+
+Prompt: Original transparent pixel art game helper character sprite sheet,
+2 columns 1 row, each square cell. Full-body friendly adult neighbor, short dark
+hair, mint-green jacket over cream T-shirt, navy trousers, tan shoes. Cute
+2.75-head proportions, detailed crisp square pixel clusters, warm plum outline
+and 4-tone shading, classic 16-bit Japanese handheld RPG style. Both poses face
+LEFT in true profile. LEFT CELL walks toward the left with empty arms at sides.
+RIGHT CELL stands facing left with both arms outstretched in front at waist
+height holding an EMPTY shallow cream serving tray. Tray sticks out on left of
+torso; food will be drawn by game engine. Same character, scale, feet baseline,
+complete body, generous margins around each cell. Exact two separate sprites,
+no grid, no text. Transparent alpha outside sprite, no floor, no backdrop,
+no extra food or icons.

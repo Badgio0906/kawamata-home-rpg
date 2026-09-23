@@ -2,6 +2,9 @@ extends Node
 
 const EXP_LEVELS := [0, 0, 50, 130, 240, 380]
 var enemies: Dictionary = {}
+var stage := 1
+var stage_fight_count := 0
+var stage_one_stats: Dictionary = {}
 var player_level := 1
 var current_exp := 0
 var max_hp := 100
@@ -25,6 +28,9 @@ func _ready() -> void:
 		enemies = JSON.parse_string(file.get_as_text())
 
 func reset() -> void:
+	stage = 1
+	stage_fight_count = 0
+	stage_one_stats.clear()
 	player_level = 1
 	current_exp = 0
 	max_hp = 100
@@ -39,6 +45,30 @@ func reset() -> void:
 	call_count = 0
 	completed.clear()
 	player_position = Vector2(260, 364)
+	enemy_id = ""
+	encounter_id = ""
+
+func start_stage_two() -> void:
+	if stage == 1:
+		stage_one_stats = {"battles":fight_count,"wins":fight_win_count,"eats":eat_count,"calls":call_count}
+	stage = 2
+	stage_fight_count = 0
+	player_level = 4
+	current_exp = 240
+	max_hp = 136
+	current_hp = 136
+	attack = 34
+	defense = 14
+	calories = 900
+	motivation = 80
+	fight_count = int(stage_one_stats.get("battles",0))
+	fight_win_count = int(stage_one_stats.get("wins",0))
+	eat_count = int(stage_one_stats.get("eats",0))
+	call_count = int(stage_one_stats.get("calls",0))
+	for id in completed.keys():
+		if str(id).begins_with("stage2_"):
+			completed.erase(id)
+	player_position = Vector2(260,364)
 	enemy_id = ""
 	encounter_id = ""
 

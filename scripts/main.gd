@@ -3,6 +3,17 @@ extends Control
 const W := 960.0
 const H := 540.0
 const WORLD_WIDTH := 2560.0
+const STAGE_TWO_REST := 60
+const STAGE_TWO_GATES := [
+	{"id":"stage2_01","enemy":"s2_donut","x":310.0,"optional":false},
+	{"id":"stage2_02","enemy":"s2_karaage","x":585.0,"optional":false},
+	{"id":"stage2_03","enemy":"s2_pizza","x":865.0,"optional":false},
+	{"id":"stage2_04","enemy":"s2_burger","x":1145.0,"optional":false},
+	{"id":"stage2_05","enemy":"s2_parfait","x":1425.0,"optional":false},
+	{"id":"stage2_06","enemy":"s2_ramen","x":1705.0,"optional":false},
+	{"id":"stage2_07","enemy":"s2_feast","x":1995.0,"optional":false},
+	{"id":"stage2_08","enemy":"s2_final","x":2235.0,"optional":false},
+]
 const GATES := [
 	{"id":"encounter_01","enemy":"donut","x":310.0,"optional":false},
 	{"id":"encounter_02","enemy":"cake","x":585.0,"optional":false},
@@ -29,12 +40,15 @@ var muted := false
 var screen := "title"
 var last_screen := ""
 var camera_x := 0.0
-var touch_direction := Vector2.ZERO
-var mouse_down := false
+var walk_paused := false
+var speech_time := 0.0
+var speech_cooldown := 0.0
+var segment_start := 260.0
 var player_facing := Vector2.DOWN
 var move_time := 0.0
 var enemy: Dictionary = {}
 var enemy_hp := 0
+var bites := 0
 var battle_finished := false
 var battle_text: Array[String] = []
 var game_over_reason := ""
@@ -51,6 +65,26 @@ func _ready() -> void:
 	town_shapes = JSON.parse_string(FileAccess.get_file_as_string("res://data/town_art.json"))
 	for name in ["donut","cake","karaage","burger","pizza","parfait","ramen","final","player_front","player_back","player_side","player_front_walk_a","player_front_walk_b","player_back_walk_a","player_back_walk_b","player_side_walk_a","player_side_walk_b","player_fallen","player_seated","office","home","sweets","diner","shop","houses","tree","lamp"]:
 		art[name] = load("res://assets/generated/%s.png" % name)
+	art["helper"] = load("res://assets/rpg/helper_atlas.png")
+	art["station"] = load("res://assets/rpg/station.png")
+	art["feast"] = load("res://assets/rpg/feast.png")
+	var hero: Texture2D = load("res://assets/rpg/hero_atlas.png")
+	var cell := hero.get_width() / 3.0
+	for row in range(3):
+		for col in range(3):
+			var frame := AtlasTexture.new()
+			frame.atlas = hero
+			frame.region = Rect2(col*cell,row*cell,cell,cell)
+			frame.filter_clip = true
+			var suffix: String = ["_walk_a","","_walk_b"][col]
+			art["player_" + ["front","back","side"][row] + suffix] = frame
+	var endings: Texture2D = load("res://assets/rpg/hero_endings.png")
+	for col in range(3):
+		var frame := AtlasTexture.new()
+		frame.atlas = endings
+		frame.region = Rect2(col*endings.get_width()/3.0,0,endings.get_width()/3.0,endings.get_height())
+		frame.filter_clip = true
+		art[["player_seated","player_fallen","player_happy"][col]] = frame
 	for name in ["select","cancel","encounter","attack","damage","eat","phone","victory","level","gameover","clear","bgm_title","bgm_field","bgm_battle","bgm_ending"]:
 		sounds[name] = load("res://assets/audio/%s.wav" % name)
 	music = AudioStreamPlayer.new()
@@ -99,26 +133,36 @@ func _process(delta: float) -> void:
 	if field_notice_time > 0:
 		field_notice_time = maxf(0, field_notice_time - delta)
 	if screen == "field":
-		var direction := Vector2.ZERO
-		if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_A): direction.x -= 1
-		if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D): direction.x += 1
-		if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W): direction.y -= 1
-		if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S): direction.y += 1
-		if touch_direction != Vector2.ZERO:
-			direction = touch_direction
-		if direction != Vector2.ZERO:
-			var old_x := Game.player_position.x
-			player_facing = direction
-			Game.player_position += direction.normalized() * 155.0 * delta
-			Game.player_position.x = clampf(Game.player_position.x, 70.0, WORLD_WIDTH - 80.0)
-			Game.player_position.y = clampf(Game.player_position.y, 285.0, 445.0)
-			move_time += delta
-			_check_encounter(old_x)
+		_advance_walk(delta)
 		camera_x = clampf(Game.player_position.x - 470.0, 0.0, WORLD_WIDTH - W)
 	queue_redraw()
 
+func _gates() -> Array:
+	var route: Array = STAGE_TWO_GATES if Game.stage == 2 else GATES
+	return route.filter(func(gate: Dictionary) -> bool: return not gate.optional)
+
+func _advance_walk(delta: float) -> void:
+	if walk_paused or screen != "field": return
+	var target_x := 2440.0
+	for gate in _gates():
+		if not Game.completed.has(gate.id):
+			target_x = float(gate.x)
+			break
+	var old_x := Game.player_position.x
+	Game.player_position.x = minf(target_x,old_x + 88.0*delta)
+	var progress := clampf((Game.player_position.x-segment_start)/maxf(1,target_x-segment_start),0,1)
+	Game.player_position.y = 365.0 + sin(progress*TAU)*24.0
+	player_facing = Vector2.RIGHT
+	move_time += delta
+	speech_cooldown -= delta
+	speech_time = maxf(0,speech_time-delta)
+	if speech_cooldown <= 0:
+		speech_time = 2.6
+		speech_cooldown = 6.5
+	_check_encounter(old_x)
+
 func _check_encounter(old_x: float) -> void:
-	for gate in GATES:
+	for gate in _gates():
 		if Game.completed.has(gate.id):
 			continue
 		if gate.optional and Game.player_position.y > 332:
@@ -128,16 +172,21 @@ func _check_encounter(old_x: float) -> void:
 			Game.enemy_id = gate.enemy
 			_start_battle()
 			return
-	if Game.player_position.x > 2420.0 and Game.completed.has("encounter_08"):
-		screen = "clear"
+	var last_gate := "stage2_08" if Game.stage == 2 else "encounter_08"
+	if Game.player_position.x > 2420.0 and Game.completed.has(last_gate):
+		screen = "clear" if Game.stage == 2 else "station"
 		_sound("clear")
 
 func _start_battle() -> void:
 	enemy = Game.enemies[Game.enemy_id]
 	enemy_hp = int(enemy.hp)
+	bites = 0
 	battle_finished = false
 	battle_text = ["%sが誘惑してきた！" % enemy.name]
+	if enemy.get("eat_required",1) > 1:
+		battle_text = ["二段のごちそうが立ちはだかった！", "この大きさ……一度では食べきれない。"]
 	Game.fight_count += 1
+	Game.stage_fight_count += 1
 	anim_kind = ""
 	anim_time = 0
 	screen = "battle"
@@ -150,8 +199,11 @@ func _battle_command(cmd: int) -> void:
 		return
 	if cmd == 1:
 		var damage := maxi(1, roundi(Game.attack * Game.modifier() - int(enemy.defense) + randi_range(-2,2)))
+		if enemy.get("invulnerable",false): damage = 0
 		enemy_hp = maxi(0, enemy_hp - damage)
 		battle_text = ["河俣さんは誘惑に耐えた！", "%sに%dのダメージ！" % [enemy.name,damage]]
+		if enemy.get("invulnerable",false):
+			battle_text = ["ごちそうの壁はびくともしない！", "この敵は食べるを2回でしか倒せない。"]
 		anim_kind = "fight"
 		anim_time = 0.45
 		_sound("attack")
@@ -165,7 +217,7 @@ func _battle_command(cmd: int) -> void:
 				_game_over("hp")
 				return
 	elif cmd == 2:
-		Game.eat_count += 1
+		bites += 1
 		Game.current_hp = mini(Game.max_hp, Game.current_hp + int(enemy.eat_heal))
 		Game.calories += int(enemy.eat_calories)
 		Game.motivation = mini(100, Game.motivation + int(enemy.eat_motivation))
@@ -173,13 +225,22 @@ func _battle_command(cmd: int) -> void:
 		anim_kind = "eat"
 		anim_time = 0.7
 		_sound("eat")
-		_complete_encounter()
+		if bites >= int(enemy.get("eat_required",1)):
+			Game.eat_count += 1
+			_complete_encounter()
+		else:
+			enemy_hp = roundi(float(enemy.hp) * (1.0-float(bites)/int(enemy.eat_required)))
+			battle_text = ["一段目を食べた！ まだもう一段ある！", "カロリー +550 / HP +22 / やる気 +12", "あと1回、食べると +550 kcal。"]
 	elif cmd == 3:
+		if enemy.get("cannot_call",false):
+			battle_text = ["助けを呼んだが、大きすぎて運べない！", "HP・カロリー・やる気の変化はありません。", "この敵は食べるを2回で突破しよう。"]
+			_sound("phone")
+			return
 		Game.call_count += 1
 		Game.motivation = maxi(0, Game.motivation - int(enemy.motivation_cost))
 		battle_text = ["助けを呼んだ！", "誰かが誘惑を持っていってくれた！", "やる気 -%d" % int(enemy.motivation_cost)]
 		anim_kind = "call"
-		anim_time = 0.7
+		anim_time = 2.4
 		_sound("phone")
 		_complete_encounter()
 	var fail := Game.failure()
@@ -204,15 +265,18 @@ func _win_fight() -> void:
 	_complete_encounter()
 
 func _complete_encounter() -> void:
+	enemy_hp = 0
 	Game.completed[Game.encounter_id] = true
 	battle_finished = true
 
 func _finish_battle() -> void:
+	if anim_kind == "call" and anim_time > 0: return
 	if Game.failure() != "":
 		_game_over(Game.failure())
 		return
 	screen = "field"
 	Game.player_position.x += 26.0
+	segment_start = Game.player_position.x
 	if Game.encounter_id in ["encounter_04","encounter_06","encounter_07"]:
 		var before := Game.current_hp
 		var heal := 45 if Game.encounter_id == "encounter_04" else 100 if Game.encounter_id == "encounter_06" else 50
@@ -223,6 +287,11 @@ func _finish_battle() -> void:
 			Game.motivation += morale
 		field_notice = "ベンチで一休み！ HP +%d やる気 +%d" % [Game.current_hp - before,morale]
 		field_notice_time = 3.5
+	if Game.encounter_id == "stage2_03":
+		var before := Game.current_hp
+		Game.current_hp = mini(Game.max_hp,Game.current_hp + STAGE_TWO_REST)
+		field_notice = "最後のベンチで休憩！ HP +%d" % (Game.current_hp-before)
+		field_notice_time = 5.0
 	_sound("select")
 
 func _game_over(reason: String) -> void:
@@ -237,6 +306,7 @@ func _draw() -> void:
 		"battle": _draw_battle()
 		"game_over": _draw_end(false)
 		"clear": _draw_end(true)
+		"station","briefing": _draw_briefing()
 	_draw_mute()
 	if flash_time > 0:
 		draw_rect(Rect2(0,0,W,H),Color(1,1,0.9,flash_time * 0.7))
@@ -272,12 +342,14 @@ func _sprite(name: String,x: float,y: float,w: float,h: float,flip: bool=false) 
 	if town_shapes.has(name):
 		var shape: Dictionary = town_shapes[name]
 		var b: Array = shape.bounds
+		var atlas: Texture2D = art[shape.texture] if shape.has("texture") else town_atlas
 		var points := PackedVector2Array()
 		var uvs := PackedVector2Array()
 		for pair in shape.outline:
-			points.append(Vector2(x+(float(pair[0])-b[0])/b[2]*w,y+(float(pair[1])-b[1])/b[3]*h))
-			uvs.append(Vector2(float(pair[0])/1536.0,float(pair[1])/1024.0))
-		draw_polygon(points,PackedColorArray([Color.WHITE]),uvs,town_atlas)
+			var local_x: float = (float(pair[0])-b[0])/b[2]*w
+			points.append(Vector2(x+w-local_x if flip else x+local_x,y+(float(pair[1])-b[1])/b[3]*h))
+			uvs.append(Vector2(float(pair[0])/atlas.get_width(),float(pair[1])/atlas.get_height()))
+		draw_polygon(points,PackedColorArray([Color.WHITE]),uvs,atlas)
 		return
 	var tex: Texture2D = art[name]
 	if flip:
@@ -300,10 +372,32 @@ func _draw_title() -> void:
 	_center("おうち帰れるかな",178,157,604,50,Color("#bd666b"))
 	_round(242,218,476,40,Color("#385b58"),8)
 	_center("誘惑に負けず、おうちまで帰ろう！",250,246,460,20,Color("#fff1c6"))
-	_sprite("player_front",424,285,96,128)
+	_sprite("player_front",408,278,144,144)
 	_sprite("donut",303,327,64,64)
 	_sprite("cake",578,327,64,64)
-	_button("ゲームスタート",Rect2(334,435,292,72),true,28)
+	_button("1  職場から出発",Rect2(175,435,292,72),true,25)
+	_button("2  駅から出発・上級",Rect2(489,435,300,72),true,23)
+
+func _draw_briefing() -> void:
+	_draw_town(1550)
+	_rect(0,0,W,H,Color("#203552",0.55))
+	_round(42,26,814,490,Color("#fff1d8"),12)
+	_center("阪神尼崎駅に到着！" if screen == "station" else "STAGE 2  駅からおうちへ",62,76,774,32,Color("#5c4964"))
+	_sprite("station",67,105,280,170)
+	_sprite("player_front",165,306,100,100)
+	_center("阪神尼崎駅",72,297,267,22,Color("#435957"))
+	_text("夜の帰り道は、計画的に。",368,122,25,Color("#624b62"))
+	_text("Lv.4 / HP136 / 900 kcal / やる気80",368,163,20,Color("#425957"))
+	_text("駅で準備して、この数値からスタート。",368,191,19,Color("#425957"))
+	_text("・食べ物へ、つい足が向いてしまう。",368,231,20,Color("#425957"))
+	_text("・移動は自動。戦闘で作戦を選ぼう。",368,268,20,Color("#425957"))
+	_text("・手強い誘惑が待つ、上級コース。",368,305,20,Color("#425957"))
+	_round(365,325,453,76,Color("#754c5f"),8)
+	_text("戦う・食べる・誰かを呼ぶ",383,355,23,Color("#ffe3a0"))
+	_text("今日こそ、無事に帰りたい！",383,385,22)
+	_text("駅を出たら、おうちまでもうひと頑張り。",123,430,22,Color("#5c4964"))
+	_button("2ステージ目へ",Rect2(187,440,330,70),true,25)
+	_button("タイトルへ",Rect2(545,440,238,70),true,23)
 
 func _draw_town(offset: float) -> void:
 	_rect(0,0,W,H,Color("#8bb479"))
@@ -336,44 +430,56 @@ func _draw_town(offset: float) -> void:
 		var bx := i*255.0+14.0-offset
 		if bx < -250 or bx > W: continue
 		var kind: String = ["office","sweets","sweets","diner","shop","diner","shop","diner","houses","home"][i]
-		_sprite(kind,bx,77,195,195)
+		if (Game.stage == 1 and i == 9) or (Game.stage == 2 and i == 0): kind = "station"
+		_sprite(kind,bx-22 if kind == "station" else bx,125 if kind == "station" else 77,245 if kind == "station" else 195,142 if kind == "station" else 195)
 		_sprite("tree",bx+190,156,66,96)
 		var shop_name: String = ["職場","洋菓子店","ドーナツ","揚げもの","バーガー","ピザ","スーパー","ラーメン","住宅街","おうち"][i]
+		if kind == "station": shop_name = "阪神尼崎駅"
+		elif Game.stage == 2:
+			shop_name = ["駅前","夜のドーナツ","唐揚げ弁当","ピザ屋","バーガー","パフェ店","ラーメン","大盛り横丁","住宅街","おうち"][i]
 		_round(bx+35,248,128,27,Color("#fff0ca"),6)
 		_center(shop_name,bx+35,268,128,16,Color("#425957"))
-	for bench_x in [1180.0,1740.0,2000.0]:
+	for bench_x in ([905.0] if Game.stage == 2 else [1180.0,1740.0,2000.0]):
 		var bx: float = bench_x-offset
 		if bx > -100 and bx < W:
 			_sprite("bench",bx,231,87,49)
+	if Game.stage == 2:
+		_rect(0,0,W,H,Color("#252650",0.22))
+		for i in range(10):
+			var lx := i*255.0+205-offset
+			if lx < -40 or lx > W+40: continue
+			_oval(Vector2(lx,281),39,10,Color("#ffe3a0",0.20))
+			_sprite("lamp",lx-16,215,32,65)
 
 func _draw_field() -> void:
 	_draw_town(camera_x)
-	for gate in GATES:
+	for gate in _gates():
 		if Game.completed.has(gate.id): continue
 		var x: float = gate.x-camera_x
 		if x < -50 or x > W+50: continue
 		var gy := 319.0 if gate.optional else 361.0
 		_rect(x-18,gy+28,36,4,Color("#9c946d"))
-		_sprite(gate.enemy,x-24,gy-16,48,48)
+		var enemy_art: String = Game.enemies[gate.enemy].get("art",gate.enemy)
+		var sz := 76.0 if gate.enemy == "s2_feast" else 48.0
+		_sprite(enemy_art,x-sz/2,gy+32-sz,sz,sz)
+		if gate.enemy == "s2_feast":
+			_round(x-95,gy-70,190,30,Color("#754c5f"),6)
+			_center("必須  食べる×2",x-95,gy-48,190,17)
 		if gate.optional:
 			_text("寄り道",x-23,gy+57,14,Color("#4b6859"))
-	var moving := touch_direction != Vector2.ZERO or Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_S)
+	var moving := not walk_paused
 	var direction_name := "side" if absf(player_facing.x) > absf(player_facing.y) else ("front" if player_facing.y > 0 else "back")
 	var walk := "player_" + direction_name
 	if moving:
 		walk += "_walk_a" if int(move_time*8)%2 == 0 else "_walk_b"
 	_oval(Vector2(Game.player_position.x-camera_x,Game.player_position.y-3),17,5,Color("#687b60",0.4))
-	_sprite(walk,Game.player_position.x-camera_x-24,Game.player_position.y-64,48,64,player_facing.x < 0 and direction_name == "side")
+	_sprite(walk,Game.player_position.x-camera_x-34,Game.player_position.y-68,68,68,player_facing.x < 0 and direction_name == "side")
 	_draw_hud()
-	_draw_pad()
-	if Game.player_position.x < 215:
-		_round(225,99,370,41,Color("#252d49"),8)
-		_text("職場を出た！ おうちまで進もう",239,127,19)
-	if Game.completed.has("encounter_08") and Game.player_position.x > 2210:
-		_round(350,105,256,38,Color("#252d49"),8)
-		_text("おうちの玄関へ！",362,132,19)
+	_button("歩き出す" if walk_paused else "ひと休み",Rect2(30,440,194,72),true,22)
+	if speech_time > 0: _draw_walk_speech()
+
 	if field_notice_time > 0:
-		_round(299,145,399,42,Color("#252d49"),8)
+		_round(299,145,555,42,Color("#252d49"),8)
 		_text(field_notice,312,173,20)
 
 func _draw_hud() -> void:
@@ -383,7 +489,8 @@ func _draw_hud() -> void:
 	_draw_meter("カロリー",Game.calories,1600,300,22,Color("#f4bc75"),Game.calories >= 1300)
 	_draw_meter("やる気",Game.motivation,100,498,22,Color("#9ac8f2"),Game.motivation <= 25)
 	_round(692,12,174,57,Color("#fff0ca"),8)
-	_text("戦闘 %d/8～11" % Game.fight_count,705,48,18,Color("#405958"))
+	_text("STAGE %d" % Game.stage,705,33,17,Color("#405958"))
+	_text("戦闘 %d/%s" % [Game.stage_fight_count,"8"],705,56,17,Color("#405958"))
 
 func _draw_meter(label: String,value: int,max_value: int,x: float,y: float,c: Color,warn: bool) -> void:
 	_text(("! " if warn else "")+label,x,y+19,17,Color("#ff8388") if warn else Color.WHITE)
@@ -391,17 +498,14 @@ func _draw_meter(label: String,value: int,max_value: int,x: float,y: float,c: Co
 	_round(x,y+27,158.0*clampf(float(value)/max_value,0,1),12,c,5)
 	_text("%d / %d" % [value,max_value],x,y+60,17,Color("#ff8588") if warn else Color("#e9e8df"))
 
-func _draw_pad() -> void:
-	for entry in _pad_buttons():
-		var box: Rect2 = entry[1]
-		var direction: Vector2 = entry[2]
-		_button("",box,true,27)
-		var center := box.get_center()
-		var side := Vector2(-direction.y,direction.x)
-		draw_colored_polygon(PackedVector2Array([center+direction*15,center-direction*11+side*13,center-direction*11-side*13]),Color("#405956"))
-
-func _pad_buttons() -> Array:
-	return [["▲",Rect2(92,284,70,70),Vector2.UP], ["◀",Rect2(15,360,70,70),Vector2.LEFT], ["▶",Rect2(169,360,70,70),Vector2.RIGHT], ["▼",Rect2(92,436,70,70),Vector2.DOWN]]
+func _draw_walk_speech() -> void:
+	var px := Game.player_position.x-camera_x
+	var py := Game.player_position.y-77
+	var bx := clampf(px-151,14,W-316)
+	_round(bx,py-74,302,64,Color("#fff5df"),8)
+	draw_colored_polygon(PackedVector2Array([Vector2(px-8,py-12),Vector2(px+9,py-12),Vector2(px,py+2)]),Color("#fff5df"))
+	_center("勝手に",bx+8,py-47,286,20,Color("#655064"))
+	_center("吸い寄せられてしまう！",bx+8,py-21,286,20,Color("#655064"))
 
 func _draw_battle() -> void:
 	for band in range(8):
@@ -415,6 +519,7 @@ func _draw_battle() -> void:
 	for i in range(39):
 		_rect((i*83)%960,220+(i*37)%98,8,3,Color("#9bb77b"))
 		_rect((i*83+11)%960,223+(i*37)%98,3,4,Color("#9bb77b"))
+	if Game.stage == 2: _rect(0,0,W,326,Color("#252650",0.23))
 	_oval(Vector2(710,282),118,21,Color("#76966a"))
 	_oval(Vector2(710,279),111,17,Color("#e2d19d"))
 	_oval(Vector2(205,310),110,24,Color("#76966a"))
@@ -427,24 +532,26 @@ func _draw_battle() -> void:
 	else:
 		_text(enemy.name,655,103,20,Color("#514354"),230)
 	_draw_bar(660,119,216,float(enemy_hp)/float(enemy.hp),Color("#e47d7c"))
-	_text("HP %d / %d" % [enemy_hp,int(enemy.hp)],657,146,14,Color("#544a5c"))
+	_text("残り %d 段 / 食べる2回" % maxi(0,2-bites) if enemy.get("invulnerable",false) else "HP %d / %d" % [enemy_hp,int(enemy.hp)],657,146,14,Color("#544a5c"))
+	_round(22,18,594,72,Color("#385b58"),8)
+	if enemy.get("invulnerable",false):
+		_text("そびえ立つ、二段のごちそう！",36,46,20,Color("#ffe3a0"))
+		_text("食事1回：+550 kcal / HP +22 / やる気 +12",36,75,19)
+	else:
+		_text("勝利：%d kcal / やる気 -%d / EXP +%d" % [int(enemy.fight_calories),int(enemy.motivation_cost),int(enemy.exp)],36,46,19)
+		_text("食事：+%d kcal / HP +%d / やる気 +%d" % [int(enemy.eat_calories),int(enemy.eat_heal),int(enemy.eat_motivation)],36,75,19,Color("#ffe3a0"))
 	var enemy_x := 645.0
 	var enemy_y := 153.0
 	var scale := 1.0
+	if enemy.get("eat_required",1) > 1 and bites == 1: scale = 0.72
 	if anim_kind == "eat" and anim_time > 0:
-		scale = maxf(0.05,anim_time/0.7)
+		scale = lerpf(0.72,1.0,anim_time/0.7) if not battle_finished else maxf(0.05,anim_time/0.7)
 	if anim_kind == "call" and anim_time > 0:
-		enemy_x += 220.0*(1-anim_time/0.7)
-	if not (anim_kind == "fight" and anim_time > 0 and int(anim_time*18)%2 == 0):
-		_sprite(Game.enemy_id,enemy_x+65*(1-scale),enemy_y+80*(1-scale),130*scale,130*scale)
-	if anim_kind == "call" and anim_time > 0:
-		_round(475,124,42,65,Color("#353954"),5)
-		_rect(480,132,32,44,Color("#97c8cc"))
-		draw_circle(Vector2(496,182),3,Color("#d3cfcc"))
-		_rect(822,170,35,78,Color("#39435d"))
-		_rect(820,145,39,38,Color("#dcb18b"))
-	var px := 151.0 + (18.0 if anim_kind == "fight" and anim_time > 0 else 0.0)
-	_sprite("player_back",px,180,96,128)
+		_draw_helper_call()
+	elif not (battle_finished and anim_time <= 0) and not (anim_kind == "fight" and anim_time > 0 and int(anim_time*18)%2 == 0):
+		_sprite(enemy.get("art",Game.enemy_id),enemy_x+65*(1-scale),enemy_y+130*(1-scale),130*scale,130*scale)
+	var px := 130.0 + (18.0 if anim_kind == "fight" and anim_time > 0 else 0.0)
+	_sprite("player_back",px,160,152,152)
 	if anim_kind == "eat" and anim_time > 0:
 		for i in range(6):
 			var sx := px-18+i*39
@@ -458,11 +565,31 @@ func _draw_battle() -> void:
 	for i in range(mini(3,battle_text.size())):
 		_text(battle_text[maxi(0,battle_text.size()-3)+i],59,394+i*25,18,Color("#594c57"),830)
 	if battle_finished:
-		_button("つづける",Rect2(330,449,300,70),true,22)
+		_button("お届け中…" if anim_kind == "call" and anim_time > 0 else "つづける",Rect2(330,449,300,70),not (anim_kind == "call" and anim_time > 0),22)
 	else:
 		_button("1  戦う",Rect2(58,449,260,70),true,21)
 		_button("2  食べる",Rect2(350,449,260,70),true,21)
 		_button("3  誰かを呼ぶ",Rect2(642,449,260,70),true,21)
+
+func _draw_helper_call() -> void:
+	# The helper walks in, collects the food on a tray, then carries it away.
+	var elapsed := 2.4-anim_time
+	var collecting := clampf((elapsed-0.7)/0.5,0,1)
+	var leaving := elapsed >= 1.35
+	var helper_x := lerpf(975,756,clampf(elapsed/0.7,0,1))
+	if leaving: helper_x = lerpf(756,1010,clampf((elapsed-1.35)/1.05,0,1))
+	var bob := sin(elapsed*22)*2.0 if elapsed < 0.7 or leaving else 0.0
+	_sprite("helper_walk" if elapsed < 0.7 else "helper_carry",helper_x,142+bob,80,160,leaving)
+	var food_size := lerpf(130,49,collecting)
+	var food_center := Vector2(710,218).lerp(Vector2(helper_x+11,206+bob),collecting)
+	if leaving: food_center = Vector2(helper_x+69,206+bob)
+	_sprite(enemy.get("art",Game.enemy_id),food_center.x-food_size/2,food_center.y-food_size/2,food_size,food_size)
+	_round(305,152,288,54,Color("#fff1d8"),8)
+	_center("あとは任せて！" if elapsed > 0.7 else "助っ人に電話中…",316,187,266,22,Color("#5c4964"))
+	if elapsed < 0.7:
+		_round(269,204,27,44,Color("#354c57"),4)
+		_rect(274,210,17,27,Color("#acd7c5"))
+		_rect(281,240,4,3,Color("#fff1d8"))
 
 func _draw_bar(x: float,y: float,w: float,p: float,c: Color) -> void:
 	_round(x,y,w,10,Color("#9994a2"),5)
@@ -493,7 +620,7 @@ func _draw_end(won: bool) -> void:
 		_rect(21,90,125,115,Color("#524866"))
 		_rect(29,98,109,99,Color("#393f66"))
 		_rect(81,98,5,99,Color("#e8ccaa"))
-		_sprite("player_seated",209,193,160,160)
+		_sprite("player_happy",159,179,208,208)
 		_round(140,348,270,24,Color("#674d5a"),8)
 		_round(477,35,445,375,Color("#fff1d8"),15)
 		_center("無事におうちへ帰れた！",492,84,414,29,Color("#6c4b61"))
@@ -507,9 +634,9 @@ func _draw_end(won: bool) -> void:
 		_text("総戦闘回数    %d 回" % Game.fight_count,530,382,21,Color("#4f4556"))
 	else:
 		if game_over_reason == "hp":
-			_sprite("player_fallen",68,329,160,128)
+			_sprite("player_fallen",54,261,235,235)
 		else:
-			_sprite("player_seated",88,274,150,150)
+			_sprite("player_seated",59,259,215,215)
 		if game_over_reason == "calories":
 			for i in range(5): _sprite(["donut","cake","burger","pizza","parfait"][i],230+i*90,321,77,77)
 		elif game_over_reason == "motivation":
@@ -524,7 +651,7 @@ func _draw_end(won: bool) -> void:
 			_center("食べるのを我慢しすぎてやる気ゼロ。",342,143,531,24,Color("#6c4a62"))
 			_center("もう帰る気にもなれない",345,188,525,24,Color("#6c4a62"))
 		_center("戦闘 %d 回 / Lv.%d" % [Game.fight_count,Game.player_level],345,268,525,21,Color("#6c4a62"))
-	_button("もう一度遊ぶ" if won else "もう一度",Rect2(335,432,270,72),true,24)
+	_button("もう一度遊ぶ" if won else ("2ステージ目を再挑戦" if Game.stage == 2 else "もう一度"),Rect2(335,432,270,72),true,21)
 	_button("タイトルへ",Rect2(631,432,270,72),true,24)
 
 func _draw_mute() -> void:
@@ -538,26 +665,19 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_2: _battle_command(2)
 			elif event.keycode == KEY_3: _battle_command(3)
 			elif event.keycode == KEY_ENTER or event.keycode == KEY_SPACE: _battle_command(0)
-		elif screen == "title" and (event.keycode == KEY_ENTER or event.keycode == KEY_SPACE):
-			_start_game()
-		elif screen == "field":
-			var key_dir := Vector2.ZERO
-			if event.keycode == KEY_LEFT or event.keycode == KEY_A: key_dir = Vector2.LEFT
-			elif event.keycode == KEY_RIGHT or event.keycode == KEY_D: key_dir = Vector2.RIGHT
-			elif event.keycode == KEY_UP or event.keycode == KEY_W: key_dir = Vector2.UP
-			elif event.keycode == KEY_DOWN or event.keycode == KEY_S: key_dir = Vector2.DOWN
-			if key_dir != Vector2.ZERO: _nudge(key_dir)
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		mouse_down = event.pressed
-		if event.pressed: _pointer_down(event.position)
-		else: touch_direction = Vector2.ZERO
-	if event is InputEventMouseMotion and mouse_down and screen == "field":
-		_set_pad_direction(event.position)
-	if event is InputEventScreenTouch:
-		if event.pressed: _pointer_down(event.position)
-		else: touch_direction = Vector2.ZERO
-	if event is InputEventScreenDrag and screen == "field":
-		_set_pad_direction(event.position)
+		elif screen == "title":
+			if event.keycode in [KEY_ENTER,KEY_SPACE,KEY_1]: _start_game()
+			elif event.keycode == KEY_2:
+				Game.reset()
+				screen = "briefing"
+		elif screen in ["station","briefing"] and event.keycode in [KEY_ENTER,KEY_SPACE]:
+			_start_stage_two()
+		elif screen == "field" and event.keycode in [KEY_SPACE,KEY_P]:
+			walk_paused = not walk_paused
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_pointer_down(event.position)
+	if event is InputEventScreenTouch and event.pressed:
+		_pointer_down(event.position)
 
 func _pointer_down(pos: Vector2) -> void:
 	if Rect2(877,9,72,70).has_point(pos):
@@ -568,8 +688,15 @@ func _pointer_down(pos: Vector2) -> void:
 		return
 	match screen:
 		"title":
-			if Rect2(334,435,292,72).has_point(pos): _start_game()
-		"field": _set_pad_direction(pos)
+			if Rect2(175,435,292,72).has_point(pos): _start_game()
+			elif Rect2(489,435,300,72).has_point(pos):
+				Game.reset()
+				screen = "briefing"
+		"station","briefing":
+			if Rect2(187,440,330,70).has_point(pos): _start_stage_two()
+			elif Rect2(545,440,238,70).has_point(pos): screen = "title"
+		"field":
+			if Rect2(30,440,194,72).has_point(pos): walk_paused = not walk_paused
 		"battle":
 			if battle_finished:
 				if Rect2(330,449,300,70).has_point(pos): _battle_command(0)
@@ -578,30 +705,31 @@ func _pointer_down(pos: Vector2) -> void:
 				elif Rect2(350,449,260,70).has_point(pos): _battle_command(2)
 				elif Rect2(642,449,260,70).has_point(pos): _battle_command(3)
 		"game_over","clear":
-			if Rect2(335,432,270,72).has_point(pos): _start_game()
+			if Rect2(335,432,270,72).has_point(pos):
+				if screen == "game_over" and Game.stage == 2: _start_stage_two()
+				else: _start_game()
 			elif Rect2(631,432,270,72).has_point(pos): screen = "title"; _sound("cancel")
-
-func _set_pad_direction(pos: Vector2) -> void:
-	touch_direction = Vector2.ZERO
-	for entry in _pad_buttons():
-		if entry[1].has_point(pos):
-			touch_direction = entry[2]
-			_nudge(touch_direction)
-			return
-
-func _nudge(direction: Vector2) -> void:
-	if screen != "field": return
-	var old_x := Game.player_position.x
-	player_facing = direction
-	Game.player_position += direction * 12.0
-	Game.player_position.x = clampf(Game.player_position.x,70.0,WORLD_WIDTH-80.0)
-	Game.player_position.y = clampf(Game.player_position.y,285.0,445.0)
-	_check_encounter(old_x)
 
 func _start_game() -> void:
 	Game.reset()
+	camera_x = 0
 	screen = "field"
 	player_facing = Vector2.RIGHT
-	touch_direction = Vector2.ZERO
+	walk_paused = false
+	segment_start = Game.player_position.x
+	speech_cooldown = 0
+	speech_time = 0
+	field_notice_time = 0
+	_sound("select")
+
+func _start_stage_two() -> void:
+	Game.start_stage_two()
+	screen = "field"
+	camera_x = 0.0
+	player_facing = Vector2.RIGHT
+	walk_paused = false
+	segment_start = Game.player_position.x
+	speech_cooldown = 0
+	speech_time = 0
 	field_notice_time = 0
 	_sound("select")

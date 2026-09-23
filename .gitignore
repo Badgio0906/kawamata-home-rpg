@@ -5,3 +5,5 @@ godot.zip
 templates.tpz
 tools/godot/
 tools/preview/
+
+__pycache__/
