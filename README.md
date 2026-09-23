@@ -20,5 +20,9 @@ Mobile: 画面左下の方向ボタンと戦闘コマンドをタップ。横向
 - GDScript
 - `tools/generate_assets.py` でオリジナルのドット絵と音声を生成（実行時に Python は不要）
 - 日本語フォント: Noto Sans JP (SIL Open Font License、`assets/fonts/OFL.txt`)
+- 表示用ドットフォント: DotGothic16 (SIL Open Font License、`assets/fonts/DotGothic16-OFL.txt`)
+- 見下ろしの街並み、48px幅の主人公、64pxの食べ物モンスター、ドット絵の画面枠を採用。
+- 新しい主人公・敵の生成コード: `tools/generate_rpg_sprites.py`（通常の素材生成からも自動実行）。
+- 建物素材・制作プロンプト: [assets/rpg/ARTWORK.md](assets/rpg/ARTWORK.md)
 
 Godot エディターで `project.godot` を開いて実行できます。Web 書き出しは `export_presets.cfg` の Web preset を使用します。

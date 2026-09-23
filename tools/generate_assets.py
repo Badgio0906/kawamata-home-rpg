@@ -1,7 +1,7 @@
 """Generate original pixel art and synthesised audio. Runtime needs only the output files."""
 from PIL import Image, ImageDraw
 from pathlib import Path
-import math, random, struct, wave
+import math, random, struct, wave, runpy
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'assets' / 'generated'
@@ -434,4 +434,5 @@ for name,notes in {'title':[523,659,784,659,587,698,784,1047],
     'battle':[330,392,440,523,440,392,349,294],
     'ending':[523,659,784,1047,784,659,523,392]}.items():
     tone('bgm_'+name,notes,.24,.065)
+runpy.run_path(str(ROOT / 'tools' / 'generate_rpg_sprites.py'))
 print('Generated',len(list(OUT.glob('*.png'))),'PNGs and',len(list(AUDIO.glob('*.wav'))),'WAVs')
