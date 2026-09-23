@@ -58,5 +58,21 @@ func _run() -> void:
 			printerr("Failed game over route: ",check.reason)
 			quit(1)
 			return
+	main._start_game()
+	game.player_position = Vector2(710,300)
+	main._nudge(Vector2.RIGHT)
+	if main.screen != "battle" or game.encounter_id != "encounter_09":
+		printerr("Optional encounter failed")
+		quit(1)
+		return
+	main._battle_command(3)
+	main._finish_battle()
+	game.player_position = Vector2(710,300)
+	main._nudge(Vector2.RIGHT)
+	if main.screen != "field" or not game.completed.has("encounter_09"):
+		printerr("Encounter replay protection failed")
+		quit(1)
+		return
 	print("Game over routes: hp, calories, motivation OK")
+	print("Optional encounter and replay protection OK")
 	quit(0)
