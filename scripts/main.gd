@@ -45,7 +45,7 @@ var field_notice_time := 0.0
 
 func _ready() -> void:
 	font = load("res://assets/fonts/NotoSansJP.ttf")
-	for name in ["donut","cake","karaage","burger","pizza","parfait","ramen","final","player_front","player_back","player_walk_a","player_walk_b","player_fallen","player_seated","office","home","sweets","diner","shop","houses","tree","lamp"]:
+	for name in ["donut","cake","karaage","burger","pizza","parfait","ramen","final","player_front","player_back","player_side","player_front_walk_a","player_front_walk_b","player_back_walk_a","player_back_walk_b","player_side_walk_a","player_side_walk_b","player_fallen","player_seated","office","home","sweets","diner","shop","houses","tree","lamp"]:
 		art[name] = load("res://assets/generated/%s.png" % name)
 	for name in ["select","cancel","encounter","attack","damage","eat","phone","victory","level","gameover","clear","bgm_title","bgm_field","bgm_battle","bgm_ending"]:
 		sounds[name] = load("res://assets/audio/%s.wav" % name)
@@ -266,11 +266,19 @@ func _button(t: String,box: Rect2,active: bool=true,size: int=24) -> void:
 
 func _draw_title() -> void:
 	_rect(0,0,W,H,Color("#24283f"))
-	_rect(0,220,W,165,Color("#dc8c7d"))
-	_rect(0,285,W,116,Color("#896d82"))
+	for band in range(12):
+		_rect(0,165+band*19,W,20,Color("#c98485").lerp(Color("#594967"),float(band)/12.0))
+	draw_circle(Vector2(795,215),55,Color("#ffe1a3"))
+	for i in range(26):
+		var sx := float((i*139+47)%960)
+		var sy := float((i*67+27)%198)
+		_rect(sx,sy,3,3,Color("#e9d6c8",0.75))
+	_rect(0,285,W,116,Color("#71677f"))
 	_rect(0,396,W,144,Color("#585a72"))
 	for i in range(14):
 		_rect(i*75+12,398,38,4,Color("#b3a0a0"))
+	for i in range(22):
+		_rect(i*53+((i%3)*11),414+(i%4)*27,18,2,Color("#77798b"))
 	_sprite("office",16,257,175,160)
 	_sprite("sweets",223,267,155,145)
 	_sprite("diner",384,269,150,144)
@@ -284,14 +292,24 @@ func _draw_title() -> void:
 	_button("ゲームスタート",Rect2(334,435,292,72),true,29)
 
 func _draw_field() -> void:
-	_rect(0,0,W,H,Color("#313a5a"))
-	_rect(0,118,W,140,Color("#535d78"))
-	_rect(0,260,W,189,Color("#99909b"))
-	_rect(0,448,W,92,Color("#515671"))
+	for band in range(15):
+		_rect(0,band*17,W,18,Color("#30385a").lerp(Color("#bc8384"),float(band)/15.0))
+	draw_circle(Vector2(798-camera_x*0.06,80),39,Color("#f7d3a0",0.86))
+	for i in range(35):
+		var sx := fposmod(float(i*187+39)-camera_x*0.12,W)
+		var sy := float((i*61+17)%180)
+		_rect(sx,sy,2+(i%3),2+(i%2),Color("#e9ddcf",0.58))
+	_rect(0,207,W,52,Color("#626781"))
+	_rect(0,260,W,189,Color("#928d98"))
+	_rect(0,448,W,92,Color("#4c526d"))
+	_rect(0,302,W,4,Color("#d1bcc1"))
+	_rect(0,445,W,4,Color("#d1bcc1"))
 	for i in range(22):
 		var x := i*128.0-camera_x
 		_rect(x,459,62,5,Color("#d4c8aa"))
 		_rect(x+78,270,45,4,Color("#bab2a3"))
+		_rect(x+21,325+(i%2)*47,23,2,Color("#a7a1a7"))
+		_rect(x+69,392+(i%3)*12,17,2,Color("#a7a1a7"))
 	for i in range(20):
 		var x := i*137.0-camera_x
 		if x < -180 or x > W+180: continue
@@ -303,6 +321,7 @@ func _draw_field() -> void:
 	for i in range(13):
 		var x := i*210.0+160-camera_x
 		if x > -30 and x < W+30:
+			draw_circle(Vector2(x+18,242),51,Color("#ffe4a3",0.10))
 			_sprite("lamp",x,230,36,78)
 			_rect(x+10,289,15,3,Color("#ffe4a3"))
 	for bench_x in [1180.0,1740.0,2000.0]:
@@ -324,12 +343,13 @@ func _draw_field() -> void:
 		_sprite(gate.enemy,x-24,gy-16,48,48)
 		if gate.optional:
 			_text("寄り道",x-23,gy+57,14,Color("#fff4c3"))
-	var walk := "player_back"
-	if touch_direction != Vector2.ZERO or Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_S):
-		walk = "player_walk_a" if int(move_time*8)%2 == 0 else "player_walk_b"
-	if player_facing.y > 0.4: walk = "player_front"
-	draw_circle(Vector2(Game.player_position.x-camera_x,Game.player_position.y-8),26,Color(1,0.9,0.66,0.7))
-	_sprite(walk,Game.player_position.x-camera_x-25,Game.player_position.y-64,50,64,player_facing.x < 0)
+	var moving := touch_direction != Vector2.ZERO or Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_S)
+	var direction_name := "side" if absf(player_facing.x) > absf(player_facing.y) else ("front" if player_facing.y > 0 else "back")
+	var walk := "player_" + direction_name
+	if moving:
+		walk += "_walk_a" if int(move_time*8)%2 == 0 else "_walk_b"
+	draw_circle(Vector2(Game.player_position.x-camera_x,Game.player_position.y-3),20,Color("#353b53",0.24))
+	_sprite(walk,Game.player_position.x-camera_x-29,Game.player_position.y-77,58,76,player_facing.x < 0 and direction_name == "side")
 	_draw_hud()
 	_draw_pad()
 	if Game.player_position.x < 215:
@@ -364,10 +384,22 @@ func _pad_buttons() -> Array:
 	return [["▲",Rect2(92,284,70,70),Vector2.UP], ["◀",Rect2(15,360,70,70),Vector2.LEFT], ["▶",Rect2(169,360,70,70),Vector2.RIGHT], ["▼",Rect2(92,436,70,70),Vector2.DOWN]]
 
 func _draw_battle() -> void:
-	_rect(0,0,W,H,Color("#5b6c88"))
-	_rect(0,0,W,310,Color("#c7948a"))
-	_rect(0,175,W,155,Color("#8291a0"))
+	for band in range(15):
+		_rect(0,band*17,W,18,Color("#3c4f71").lerp(Color("#dba18d"),float(band)/15.0))
+	draw_circle(Vector2(826,76),39,Color("#ffe3b2",0.75))
+	for i in range(13):
+		var bx := float(i*84)
+		var bh := float(36+(i*29)%55)
+		_rect(bx,204-bh,79,bh+103,Color("#64738a"))
+		for window_x in range(2):
+			for window_y in range(2):
+				_rect(bx+12+window_x*31,214-bh+window_y*23,13,11,Color("#f4d5a8"))
+	_rect(0,266,W,64,Color("#8a929f"))
+	for i in range(16):
+		_rect(i*64+8,283+(i%2)*23,34,3,Color("#aeb1ae"))
 	_rect(0,310,W,230,Color("#eee0cc"))
+	draw_circle(Vector2(710,295),104,Color("#6d7283",0.34))
+	draw_circle(Vector2(194,302),92,Color("#5e6478",0.33))
 	_round(640,76,257,78,Color("#fff0d9"),10)
 	_text(enemy.name,655,111,20,Color("#514354"),230)
 	_draw_bar(660,124,216,float(enemy_hp)/float(enemy.hp),Color("#e47d7c"))
