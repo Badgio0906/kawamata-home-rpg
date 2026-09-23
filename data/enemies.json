@@ -1,0 +1,10 @@
+{
+  "donut": {"name":"チョコドーナツ","hp":30,"attack":11,"defense":2,"exp":20,"fight_calories":-60,"motivation_cost":7,"eat_calories":180,"eat_motivation":12,"eat_heal":20},
+  "cake": {"name":"いちごショートケーキ","hp":35,"attack":12,"defense":3,"exp":22,"fight_calories":-60,"motivation_cost":7,"eat_calories":220,"eat_motivation":14,"eat_heal":22},
+  "karaage": {"name":"サクサク唐揚げ","hp":48,"attack":15,"defense":4,"exp":30,"fight_calories":-80,"motivation_cost":9,"eat_calories":280,"eat_motivation":16,"eat_heal":30},
+  "burger": {"name":"チーズバーガー","hp":54,"attack":16,"defense":5,"exp":34,"fight_calories":-85,"motivation_cost":9,"eat_calories":300,"eat_motivation":16,"eat_heal":32},
+  "pizza": {"name":"とろけるピザ","hp":60,"attack":17,"defense":5,"exp":38,"fight_calories":-90,"motivation_cost":10,"eat_calories":320,"eat_motivation":18,"eat_heal":35},
+  "parfait": {"name":"特盛パフェ","hp":68,"attack":19,"defense":6,"exp":44,"fight_calories":-100,"motivation_cost":10,"eat_calories":380,"eat_motivation":20,"eat_heal":40},
+  "ramen": {"name":"背脂チャーシュー大盛りラーメン","hp":80,"attack":21,"defense":7,"exp":55,"fight_calories":-120,"motivation_cost":11,"eat_calories":440,"eat_motivation":22,"eat_heal":45},
+  "final": {"name":"誘惑全部のせセット","hp":92,"attack":22,"defense":7,"exp":70,"fight_calories":-130,"motivation_cost":12,"eat_calories":500,"eat_motivation":25,"eat_heal":50}
+}

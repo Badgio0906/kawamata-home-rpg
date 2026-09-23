@@ -1,0 +1,6 @@
+.godot/
+*.import
+*.tmp
+godot.zip
+templates.tpz
+tools/godot/
